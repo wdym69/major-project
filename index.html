@@ -12,11 +12,11 @@
     </button>
 
     <script>
-        let scene, camera, renderer;
+        let scene, camera, renderer, controller, hitTestSource = null, hitTestSourceRequested = false;
 
         async function initAR() {
             if (!navigator.xr) {
-                alert("WebXR is not supported on this browser. Please use Chrome on Android.");
+                alert("WebXR not supported on this browser. Please use Chrome on Android.");
                 return;
             }
 
@@ -37,15 +37,36 @@
             const geometry = new THREE.ConeGeometry(0.1, 0.2, 32); // Radius, Height, Segments
             const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
             const cone = new THREE.Mesh(geometry, material);
-            cone.position.set(0, 0, -0.5); // Place in front of the camera
+            cone.visible = false; // Hide until a surface is detected
             scene.add(cone);
 
             try {
                 const session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test"] });
                 renderer.xr.setSession(session);
 
-                // Reference space for placing objects
-                const xrRefSpace = await session.requestReferenceSpace("local");
+                const xrRefSpace = await session.requestReferenceSpace("local-floor");
+
+                // Handle hit test
+                session.requestAnimationFrame((time, frame) => {
+                    const xrViewerPose = frame.getViewerPose(xrRefSpace);
+                    if (!xrViewerPose) return;
+
+                    if (!hitTestSourceRequested) {
+                        session.requestHitTestSource({ space: xrRefSpace }).then((source) => {
+                            hitTestSource = source;
+                        });
+                        hitTestSourceRequested = true;
+                    }
+
+                    if (hitTestSource) {
+                        const hitTestResults = frame.getHitTestResults(hitTestSource);
+                        if (hitTestResults.length > 0) {
+                            const hitPose = hitTestResults[0].getPose(xrRefSpace);
+                            cone.position.set(hitPose.transform.position.x, hitPose.transform.position.y, hitPose.transform.position.z);
+                            cone.visible = true;
+                        }
+                    }
+                });
 
                 renderer.setAnimationLoop(() => {
                     renderer.render(scene, camera);
