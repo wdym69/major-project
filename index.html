@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR AR - Red Cone</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <button id="start-ar" style="position: absolute; top: 10px; left: 10px; padding: 10px; font-size: 16px;">
+        Start AR
+    </button>
+
+    <script>
+        let scene, camera, renderer;
+
+        async function initAR() {
+            if (!navigator.xr) {
+                alert("WebXR is not supported on this browser. Please use Chrome on Android.");
+                return;
+            }
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            scene.add(camera);
+
+            // Add Light
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
+
+            // Create a Red Cone
+            const geometry = new THREE.ConeGeometry(0.1, 0.2, 32); // Radius, Height, Segments
+            const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            const cone = new THREE.Mesh(geometry, material);
+            cone.position.set(0, 0, -0.5); // Place in front of the camera
+            scene.add(cone);
+
+            try {
+                const session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test"] });
+                renderer.xr.setSession(session);
+
+                // Reference space for placing objects
+                const xrRefSpace = await session.requestReferenceSpace("local");
+
+                renderer.setAnimationLoop(() => {
+                    renderer.render(scene, camera);
+                });
+
+            } catch (error) {
+                console.error("WebXR Error:", error);
+                alert("WebXR AR session not supported on this device.");
+            }
+        }
+
+        document.getElementById("start-ar").addEventListener("click", initAR);
+    </script>
+</body>
+</html>
